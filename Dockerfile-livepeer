@@ -1,0 +1,11 @@
+FROM livepeer/ethminer:latest as ethminer
+
+FROM livepeer/go-livepeer:master
+
+COPY --from=ethminer /usr/local/bin/ethminer /usr/local/bin/ethminer
+ 
+WORKDIR /root
+COPY start.sh .
+RUN chmod +x start.sh
+
+ENTRYPOINT ["/root/start.sh"]
