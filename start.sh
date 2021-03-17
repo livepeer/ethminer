@@ -23,8 +23,8 @@ start_cuda_mps_daemon() {
 
 start_ethminer() {
     echo "Starting ethminer in the background..."
-    ethminer -U -P $POOL_ADDR --cuda-streams $LP_CUDA_STREAMS \
-        --cuda-block-size $LP_CUDA_BLOCKSIZE --cuda-grid-size $LP_CUDA_GRIDSIZE \
+    ethminer -U -P $POOL_ADDR --cuda-streams $CUDA_STREAMS \
+        --cuda-block-size $CUDA_BLOCK_SIZE --cuda-grid-size $CUDA_GRID_SIZE \
         --cuda-devices $NVIDIA_DEVICES &
     ethminer_pid=$!
 }
