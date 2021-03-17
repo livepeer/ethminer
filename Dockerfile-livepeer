@@ -1,6 +1,47 @@
-FROM livepeer/ethminer:latest as ethminer
+# ethminer builder image
+FROM nvidia/cuda:10.1-devel-ubuntu18.04 as builder
 
-FROM livepeer/go-livepeer:master
+WORKDIR /root
+
+RUN apt-get update \
+    && apt-get install -qy build-essential git cmake perl software-properties-common mesa-common-dev libidn11-dev python3-requests python3-git
+
+# Copy directories individually to make sure to exclude non-ethminer specific files
+COPY .git .git
+COPY cmake cmake
+COPY ethminer ethminer
+COPY libapicore libapicore
+COPY libdevcore libdevcore
+COPY libethash-cl libethash-cl
+COPY libethash-cpu libethash-cpu
+COPY libethash-cuda libethash-cuda
+COPY libethcore libethcore
+COPY libhwmon libhwmon
+COPY libpoolprotocols libpoolprotocols
+COPY scripts scripts
+COPY .bumpversion.cfg .bumpversion.cfg
+COPY .clang-format .clang-format
+COPY .clang-tidy .clang-tidy
+COPY .gitmodules .gitmodules
+COPY BuildInfo.h.in BuildInfo.h.in
+COPY CMakeLists.txt CMakeLists.txt
+
+RUN git submodule update --init --recursive \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && cmake --build . \
+    && make install 
+
+# ethminer distributable image image
+FROM nvidia/cuda:10.1-base AS ethminer
+
+COPY --from=builder /root/build/ethminer/ethminer /usr/local/bin/ethminer
+
+ENTRYPOINT ["ethminer"]
+
+# ethminer-livepeer distributable image
+FROM livepeer/go-livepeer:master AS ethminer-livepeer
 
 COPY --from=ethminer /usr/local/bin/ethminer /usr/local/bin/ethminer
  
