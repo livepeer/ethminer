@@ -5,9 +5,6 @@ set -e
 # Cleanup ethminer when the script exits
 trap cleanup EXIT
 
-export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
-export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
-
 cleanup() {
     if [ -n "$ethminer_pid" ] && ps -p $ethminer_pid > /dev/null; then
         # Signal ethminer to exit
@@ -17,7 +14,6 @@ cleanup() {
 
 start_cuda_mps_daemon() {
     echo "Starting CUDA MPS in the background..."
-    export CUDA_VISIBLE_DEVICES=$NVIDIA_DEVICES
     nvidia-cuda-mps-control -d &
 }
 
@@ -29,10 +25,17 @@ start_ethminer() {
     ethminer_pid=$!
 }
 
-start_cuda_mps_daemon
-sleep 1
+if [ -n ${ENABLE_CUDA_MPS+x} ]; then
+    export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
+    export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
+    export CUDA_VISIBLE_DEVICES=$NVIDIA_DEVICES
+
+    start_cuda_mps_daemon
+    unset CUDA_VISIBLE_DEVICES
+    sleep 10
+fi
 
 start_ethminer
-sleep 1
+sleep 10
 
 exec livepeer "$@"
