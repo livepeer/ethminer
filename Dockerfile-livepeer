@@ -6,27 +6,10 @@ WORKDIR /root
 RUN apt-get update \
     && apt-get install -qy build-essential git cmake perl software-properties-common mesa-common-dev libidn11-dev python3-requests python3-git
 
-# Copy directories individually to make sure to exclude non-ethminer specific files
-COPY .git .git
-COPY cmake cmake
-COPY ethminer ethminer
-COPY libapicore libapicore
-COPY libdevcore libdevcore
-COPY libethash-cl libethash-cl
-COPY libethash-cpu libethash-cpu
-COPY libethash-cuda libethash-cuda
-COPY libethcore libethcore
-COPY libhwmon libhwmon
-COPY libpoolprotocols libpoolprotocols
-COPY scripts scripts
-COPY .bumpversion.cfg .bumpversion.cfg
-COPY .clang-format .clang-format
-COPY .clang-tidy .clang-tidy
-COPY .gitmodules .gitmodules
-COPY BuildInfo.h.in BuildInfo.h.in
-COPY CMakeLists.txt CMakeLists.txt
+RUN git clone https://github.com/ethereum-mining/ethminer.git
 
-RUN git submodule update --init --recursive \
+RUN cd ethminer \
+    && git submodule update --init --recursive \
     && mkdir build \
     && cd build \
     && cmake .. \
@@ -36,7 +19,7 @@ RUN git submodule update --init --recursive \
 # ethminer distributable image image
 FROM nvidia/cuda:10.1-base AS ethminer
 
-COPY --from=builder /root/build/ethminer/ethminer /usr/local/bin/ethminer
+COPY --from=builder /root/ethminer/build/ethminer/ethminer /usr/local/bin/ethminer
 
 ENTRYPOINT ["ethminer"]
 
