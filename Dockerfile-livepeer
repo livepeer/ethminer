@@ -32,4 +32,6 @@ WORKDIR /root
 COPY start.sh .
 RUN chmod +x start.sh
 
+ENV NVIDIA_DRIVER_CAPABILITIES=all
+
 ENTRYPOINT ["/root/start.sh"]
