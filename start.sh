@@ -26,7 +26,7 @@ start_ethminer() {
     ethminer_pid=$!
 }
 
-if [ -n "$ENABLE_CUDA_MPS" ]; then
+if [ $ENABLE_CUDA_MPS == "true" ]; then
     export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
     export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
     export CUDA_VISIBLE_DEVICES=$NVIDIA_DEVICES
