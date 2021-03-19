@@ -26,6 +26,9 @@ ENTRYPOINT ["ethminer"]
 # ethminer-livepeer distributable image
 FROM livepeer/go-livepeer:master AS ethminer-livepeer
 
+RUN apt-get update \
+    && apt-get install -qy netcat jq
+
 COPY --from=ethminer /usr/local/bin/ethminer /usr/local/bin/ethminer
  
 WORKDIR /root
