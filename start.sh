@@ -14,7 +14,7 @@ cleanup() {
 
 start_cuda_mps_daemon() {
     echo "Starting CUDA MPS in the background..."
-    nvidia-cuda-mps-control -d &
+    nvidia-cuda-mps-control -d
 }
 
 start_ethminer() {
@@ -33,7 +33,7 @@ if [ -n "$ENABLE_CUDA_MPS" ]; then
 
     start_cuda_mps_daemon
     unset CUDA_VISIBLE_DEVICES
-    sleep 10
+    sleep 2
 fi
 
 start_ethminer
