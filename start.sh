@@ -5,6 +5,8 @@ set -e
 # Cleanup ethminer when the script exits
 trap cleanup EXIT
 
+livepeer_args=$@
+
 cleanup() {
     if [ -n "$ethminer_pid" ] && ps -p $ethminer_pid > /dev/null; then
         # Signal ethminer to exit
@@ -26,6 +28,42 @@ start_ethminer() {
     ethminer_pid=$!
 }
 
+start_livepeer() {
+    echo "Starting livepeer in the background..."
+    livepeer $livepeer_args &
+    livepeer_pid=$!
+}
+
+stop_livepeer() {
+    echo "Stopping livepeer..."
+    if [ -n "$livepeer_pid" ] && ps -p $livepeer_pid > /dev/null; then
+        # Signal livepeer to exit
+        kill -s TERM $livepeer_pid
+    fi
+}
+
+dag_generation_check() {
+    # Make sure DAG generation completes before starting livepeer
+    echo "Waiting for DAG generation..."
+    dag_generated=0
+    while [ $dag_generated == 0 ]
+    do
+        # Assumptions:
+        # 1. If hashrate is greater than 0 then DAG generation is complete
+        # 2. The DAG will be loaded on the GPUs in parallel (default ethminer behavior) 
+        # Note: If the 2nd assumption is not true then it is possible for the overall hashrate to be greater than 0, but the DAG
+        # not to be loaded on all GPUs yet
+        hashrate=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.hashrate)
+        if [ $hashrate != "\"0x00000000\"" ]
+        then
+            dag_generated=1
+        else
+            sleep 2
+        fi
+    done
+    echo "DAG generation complete!"
+}
+
 if [ $ENABLE_CUDA_MPS == "true" ]; then
     export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
     export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
@@ -38,25 +76,25 @@ fi
 
 start_ethminer
 sleep 2
-# Make sure DAG generation completes before starting livepeer
-echo "Waiting for DAG generation..."
-dag_generated=0
-while [ $dag_generated == 0 ]
+
+dag_generation_check
+
+start_livepeer
+
+## Make sure we stop and start livepeer during any future DAG generation, which happens at an epoch_change
+epoch_changes_old=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.epoch_changes)
+while true
 do
-    # Assumptions:
-    # 1. If hashrate is greater than 0 then DAG generation is complete
-    # 2. The DAG will be loaded on the GPUs in parallel (default ethminer behavior) 
-    # Note: If the 2nd assumption is not true then it is possible for the overall hashrate to be greater than 0, but the DAG
-    # not to be loaded on all GPUs yet
-    hashrate=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.hashrate)
-    if [ $hashrate != "\"0x00000000\"" ]
+    epoch_changes_new=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.epoch_changes)
+    if [[ $epoch_changes_new -gt $epoch_changes_old ]]
     then
-        dag_generated=1
+        echo "New Epoch detected, stopping livepeer for DAG generation"
+        stop_livepeer
+        epoch_changes_old=$epoch_changes_new
+        sleep 10
+        dag_generation_check
+        start_livepeer
     else
-        sleep 2
+        sleep 1
     fi
 done
-
-echo "DAG generation complete!"
-
-exec livepeer "$@"
