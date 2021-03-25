@@ -7,10 +7,17 @@ trap cleanup EXIT
 
 livepeer_args=$@
 
-cleanup() {
-    if [ -n "$ethminer_pid" ] && ps -p $ethminer_pid > /dev/null; then
-        # Signal ethminer to exit
-        kill -s TERM $ethminer_pid
+start_livepeer() {
+    echo "Starting livepeer in the background..."
+    livepeer $livepeer_args &
+    livepeer_pid=$!
+}
+
+stop_livepeer() {
+    echo "Stopping livepeer..."
+    if [ -n "$livepeer_pid" ] && ps -p $livepeer_pid > /dev/null; then
+        # Signal livepeer to exit
+        kill -s TERM $livepeer_pid
     fi
 }
 
@@ -28,18 +35,17 @@ start_ethminer() {
     ethminer_pid=$!
 }
 
-start_livepeer() {
-    echo "Starting livepeer in the background..."
-    livepeer $livepeer_args &
-    livepeer_pid=$!
+stop_ethminer() {
+    echo "Stopping ethminer..."
+    if [ -n "$ethminer_pid" ] && ps -p $ethminer_pid > /dev/null; then
+        # Signal ethminer to exit
+        kill -s TERM $ethminer_pid
+    fi
 }
 
-stop_livepeer() {
-    echo "Stopping livepeer..."
-    if [ -n "$livepeer_pid" ] && ps -p $livepeer_pid > /dev/null; then
-        # Signal livepeer to exit
-        kill -s TERM $livepeer_pid
-    fi
+cleanup() {
+    stop_ethminer
+    stop_livepeer
 }
 
 dag_generation_check() {
@@ -88,10 +94,10 @@ do
     epoch_changes_new=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.epoch_changes)
     if [[ $epoch_changes_new -gt $epoch_changes_old ]]
     then
-        echo "New Epoch detected, stopping livepeer for DAG generation"
+        echo "New epoch detected, stopping livepeer for DAG generation"
         stop_livepeer
         epoch_changes_old=$epoch_changes_new
-        sleep 10
+        sleep $DAG_GENERATION_TIME
         dag_generation_check
         start_livepeer
     else
