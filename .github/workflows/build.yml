@@ -52,3 +52,5 @@ jobs:
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+    - name: Notify new Docker image
+      run: curl -X POST https://holy-bread-207a.livepeer.workers.dev
