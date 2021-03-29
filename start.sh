@@ -83,6 +83,7 @@ fi
 start_ethminer
 sleep 2
 
+sleep $DAG_GENERATION_TIME
 dag_generation_check
 
 start_livepeer
@@ -94,11 +95,28 @@ do
     epoch_changes_new=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.epoch_changes)
     if [[ $epoch_changes_new -gt $epoch_changes_old ]]
     then
-        echo "New epoch detected, stopping livepeer for DAG generation"
+        echo "New epoch detected"
+
+        # Stop ethminer and let livepeer continue to run between 0 and $MAX_EPOCH_CHANGE_DELAY seconds
+        # before restarting ethminer to generate the DAG for the new epoch
+        stop_ethminer
+        sleep $(( RANDOM % $MAX_EPOCH_CHANGE_DELAY ))s
+
+        # Stop livepeer to make sure no transcoding occurs during DAG generation
         stop_livepeer
-        epoch_changes_old=$epoch_changes_new
+        sleep 2
+
+        # Start ethminer which will generate the DAG for the new epoch
+        start_ethminer
+        sleep 2
+
+        # Track epoch_changes after ethminer restarts
+        epoch_changes_old=$(echo '{"id":0,"jsonrpc":"2.0","method":"miner_getstatdetail"}' | netcat -w 1 127.0.0.1 3333 | jq .result.mining.epoch_changes)
+
+        # Start livepeer after ethminer finishes DAG generation
         sleep $DAG_GENERATION_TIME
         dag_generation_check
+
         start_livepeer
     else
         sleep 1
