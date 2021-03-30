@@ -28,10 +28,11 @@ start_cuda_mps_daemon() {
 
 start_ethminer() {
     echo "Starting ethminer in the background..."
+    # --cuda-devices accepts a space delimited string, but NVIDIA_DEVICES is a comma delimited string
     ethminer -U -P $POOL_ADDR --cuda-streams $CUDA_STREAMS \
         --cuda-block-size $CUDA_BLOCK_SIZE --cuda-grid-size $CUDA_GRID_SIZE \
-        --cuda-devices $NVIDIA_DEVICES \
-        --api-bind 127.0.0.1:3333 &
+        --api-bind 127.0.0.1:3333 \
+        --cuda-devices $(echo $NVIDIA_DEVICES | tr , " ") &
     ethminer_pid=$!
 }
 
