@@ -32,7 +32,7 @@ start_ethminer() {
     ethminer -U -P $POOL_ADDR --cuda-streams $CUDA_STREAMS \
         --cuda-block-size $CUDA_BLOCK_SIZE --cuda-grid-size $CUDA_GRID_SIZE \
         --api-bind 127.0.0.1:3333 \
-        --cuda-devices $(echo $NVIDIA_DEVICES | tr , " ") &
+        --cuda-devices $(echo $MPS_NVIDIA_DEVICES | tr , " ") &
     ethminer_pid=$!
 }
 
@@ -77,7 +77,31 @@ if [ $ENABLE_CUDA_MPS == "true" ]; then
     export CUDA_VISIBLE_DEVICES=$NVIDIA_DEVICES
 
     start_cuda_mps_daemon
+
     unset CUDA_VISIBLE_DEVICES
+
+    # https://docs.nvidia.com/deploy/mps/index.html#topic_5_2_1
+    # The MPS server will remap the devices specified by the MPS server such that they will be enumerated
+    # in the order that they are specified from the perspective of the client
+    # For example, if devices 1,2 are specified in CUDA_VISIBLE_DEVICES, a client that connects to the
+    # server will see the remapped devices 0,1
+    #
+    # After we start the MPS server, we use MPS_NVIDIA_DEVICES for clients based on the MPS server remapping
+    IFS=',' read -ra nvidia_devices_arr <<< $NVIDIA_DEVICES
+    num_devices=${#nvidia_devices_arr[@]}
+    export MPS_NVIDIA_DEVICES=""
+    for (( i = 0; i < $num_devices; i++ ))
+    do
+        MPS_NVIDIA_DEVICES="${MPS_NVIDIA_DEVICES}$i"
+        if [ $i -lt $(( $num_devices - 1 )) ];
+        then
+            MPS_NVIDIA_DEVICES="${MPS_NVIDIA_DEVICES},"
+        fi
+    done
+
+    # Update livepeer
+    livepeer_args="${livepeer_args/-nvidia=$NVIDIA_DEVICES/-nvidia=$MPS_NVIDIA_DEVICES}"
+
     sleep 2
 fi
 
