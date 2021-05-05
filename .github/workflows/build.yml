@@ -1,5 +1,7 @@
 name: Build
-on: push
+on:
+  workflow_dispatch:
+  push:
 jobs:
   build:
     runs-on: ubuntu-16.04
